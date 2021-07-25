@@ -4,7 +4,6 @@ const std = @import("std");
 // by alexnask
 // https://github.com/alexnask/ctregex.zig
 
-
 fn utf16leCharSequenceLength(first_char: u16) !u2 {
     const c0: u21 = first_char;
     if (first_char & ~@as(u21, 0x03ff) == 0xd800) {
@@ -194,7 +193,7 @@ const RegexParser = struct {
         const line_suffix = if (end_idx == parser.iterator.bytes.len) "\n" else " [...]\n";
 
         const ArgTuple = struct {
-            tuple: anytype= .{},
+            tuple: anytype = .{},
         };
         var arg_list = ArgTuple{};
         for (args) |arg| {
@@ -546,6 +545,8 @@ const RegexParser = struct {
     }
 
     fn charClassMinLen(comptime class: u21, comptime encoding: Encoding) usize {
+        _ = class;
+        _ = encoding;
         return 1;
     }
 
@@ -598,7 +599,7 @@ const RegexParser = struct {
             return switch (self) {
                 .grouped => |grouped| grouped.minLen(encoding),
                 .brackets => |brackets| brackets.minLen(encoding),
-                .any => |brackets| 1,
+                .any => 1,
                 .char_class => |class| charClassMinLen(class, encoding),
                 .literal => |codepoint_str| block: {
                     var len: usize = 0;
@@ -853,6 +854,7 @@ inline fn matchSubExpr(comptime sub_expr: RegexParser.SubExpr, comptime options:
                     } else {
                         // TODO Using an inline while here crashes the compiler in codegen
                         var curr_additional_rep: usize = 0;
+                        _ = curr_additional_rep; // ???
                         while (curr_rep < range.max) : (curr_rep += 1) {
                             if (try matchAtom(atom.data, options, str[curr_slice.len..], result)) |matched_slice| {
                                 curr_slice = str[0 .. matched_slice.len + curr_slice.len];
@@ -898,9 +900,9 @@ pub const MatchOptions = struct {
 pub fn MatchResult(comptime regex: []const u8, comptime options: MatchOptions) type {
     const CharT = options.encoding.CharT();
 
-    if (RegexParser.parse(regex)) |parsed| {
+    if (comptime RegexParser.parse(regex)) |parsed| {
         const capture_len = parsed.captures.len;
-        var capture_names: [capture_len]?[]const u8 = undefined;
+        comptime var capture_names: [capture_len]?[]const u8 = undefined;
         for (parsed.captures) |capt, idx| {
             if (capt.capture_info) |info| {
                 capture_names[idx] = info.name;

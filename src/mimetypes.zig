@@ -11,6 +11,7 @@ const ascii = std.ascii;
 const Allocator = mem.Allocator;
 const testing = std.testing;
 
+// zig fmt: off
 pub const known_files = &[_][]const u8{
     "/etc/mime.types",
     "/etc/httpd/mime.types",                    // Mac OS X
@@ -182,7 +183,7 @@ pub const extension_map = &[_][2][]const u8 {
     .{".xul"    , "text/xul"},
     .{".zip"    , "application/zip"},
 };
-
+// zig fmt: on
 
 // Whitespace characters
 const WS = " \t\r\n";
@@ -203,7 +204,6 @@ fn trim(slice: []u8, values: []const u8) []u8 {
     while (end > begin and mem.indexOfScalar(u8, values, slice[end - 1]) != null) : (end -= 1) {}
     return slice[begin..end];
 }
-
 
 pub const Registry = struct {
     const StringMap = std.StringHashMap([]const u8);
@@ -235,13 +235,10 @@ pub const Registry = struct {
         const allocator = &self.arena.allocator;
         const extension =
             if (mem.startsWith(u8, ext, "."))
-                try mem.dupe(allocator, u8, mem.trim(u8, ext, WS))
-            else
-                try mem.concat(allocator, u8,
-                    &[_][]const u8{".", mem.trim(u8, ext, WS)});
-        return self.addTypeInternal(
-            extension,
-            try mem.dupe(allocator, u8, mem.trim(u8, mime_type, WS)));
+            try mem.dupe(allocator, u8, mem.trim(u8, ext, WS))
+        else
+            try mem.concat(allocator, u8, &[_][]const u8{ ".", mem.trim(u8, ext, WS) });
+        return self.addTypeInternal(extension, try mem.dupe(allocator, u8, mem.trim(u8, mime_type, WS)));
     }
 
     // Add a mapping between a type and an extension.
@@ -285,7 +282,7 @@ pub const Registry = struct {
 
     pub fn loadRegistryLinux(self: *Registry) !void {
         for (known_files) |path| {
-            var file = fs.openFileAbsolute(path, .{.read=true}) catch |err| continue;
+            var file = fs.openFileAbsolute(path, .{ .read = true }) catch continue;
             // std.debug.warn("Loading {}...\n", .{path});
             try self.loadRegistryFile(file);
         }
@@ -350,22 +347,17 @@ pub const Registry = struct {
         // And free anything else
         self.arena.deinit();
     }
-
 };
 
 pub var instance: ?Registry = null;
-
 
 test "guess-ext" {
     var registry = Registry.init(std.testing.allocator);
     defer registry.deinit();
     try registry.load();
 
-    try testing.expectEqualSlices(u8,
-        "image/png", registry.getTypeFromFilename("an-image.png").?);
-    try testing.expectEqualSlices(u8,
-        "application/javascript", registry.getTypeFromFilename("wavascript.js").?);
-
+    try testing.expectEqualSlices(u8, "image/png", registry.getTypeFromFilename("an-image.png").?);
+    try testing.expectEqualSlices(u8, "application/javascript", registry.getTypeFromFilename("wavascript.js").?);
 }
 
 test "guess-ext-from-file" {
@@ -374,9 +366,7 @@ test "guess-ext-from-file" {
     try registry.load();
 
     // This ext is not in the list above
-    try testing.expectEqualSlices(u8,
-        "application/x-7z-compressed", registry.getTypeFromFilename("archive.7z").?);
-
+    try testing.expectEqualSlices(u8, "application/x-7z-compressed", registry.getTypeFromFilename("archive.7z").?);
 }
 
 test "guess-ext-unknown" {
@@ -386,6 +376,4 @@ test "guess-ext-unknown" {
 
     // This ext is not in the list above
     try testing.expect(registry.getTypeFromFilename("notanext") == null);
-
 }
-

@@ -53,9 +53,11 @@ pub const Headers = struct {
         options: std.fmt.FormatOptions,
         out_stream: anytype,
     ) !void {
+        _ = fmt;
+        _ = options;
         try std.fmt.format(out_stream, "Headers{{", .{});
         for (self.headers.items) |header| {
-            try std.fmt.format(out_stream, "\"{s}\": \"{s}\", ", .{header.key, header.value});
+            try std.fmt.format(out_stream, "\"{s}\": \"{s}\", ", .{ header.key, header.value });
         }
         try std.fmt.format(out_stream, "}}", .{});
     }
@@ -78,24 +80,23 @@ pub const Headers = struct {
         return self.get(key) catch null;
     }
 
-    pub fn getDefault(self: *Headers, key: []const u8,
-                      default: []const u8) []const u8 {
+    pub fn getDefault(self: *Headers, key: []const u8, default: []const u8) []const u8 {
         return self.get(key) catch default;
     }
 
     pub fn contains(self: *Headers, key: []const u8) bool {
-        const v = self.lookup(key) catch |err| return false;
+        _ = self.lookup(key) catch return false;
         return true;
     }
 
     // Check if the header equals the other
     pub fn eql(self: *Headers, key: []const u8, other: []const u8) bool {
-        const v = self.get(key) catch |err| return false;
+        const v = self.get(key) catch return false;
         return mem.eql(u8, v, other);
     }
 
     pub fn eqlIgnoreCase(self: *Headers, key: []const u8, other: []const u8) bool {
-        const v = self.get(key) catch |err| return false;
+        const v = self.get(key) catch return false;
         return ascii.eqlIgnoreCase(v, other);
     }
 
@@ -103,26 +104,26 @@ pub const Headers = struct {
         // If the key already exists under a different name don't add it again
         const i = self.lookup(key) catch |err| switch (err) {
             error.KeyError => {
-                try self.headers.append(Header{.key=key, .value=value});
+                try self.headers.append(Header{ .key = key, .value = value });
                 return;
             },
             else => return err,
         };
-        self.headers.items[i] = Header{.key=key, .value=value};
+        self.headers.items[i] = Header{ .key = key, .value = value };
     }
 
     // Put without checking for duplicates
     pub fn append(self: *Headers, key: []const u8, value: []const u8) !void {
-        return self.headers.append(Header{.key=key, .value=value});
+        return self.headers.append(Header{ .key = key, .value = value });
     }
 
     pub fn appendAssumeCapacity(self: *Headers, key: []const u8, value: []const u8) void {
-        return self.headers.appendAssumeCapacity(Header{.key=key, .value=value});
+        return self.headers.appendAssumeCapacity(Header{ .key = key, .value = value });
     }
 
     pub fn remove(self: *Headers, key: []const u8) !void {
         const i = try self.lookup(key); // Throw error
-        const v = self.headers.swapRemove(i);
+        _ = self.headers.swapRemove(i);
     }
 
     pub fn pop(self: *Headers, key: []const u8) ![]const u8 {
@@ -173,14 +174,13 @@ pub const Headers = struct {
                 },
                 ':' => return error.BadRequest, // Empty key
                 else => {
-                    index = stream.readCount()-1;
+                    index = stream.readCount() - 1;
 
                     // Read header name
-                    ch = try stream.readUntilExprValidate(
-                        error{BadRequest}, isColonValidateToken, ch, read_limit);
+                    ch = try stream.readUntilExprValidate(error{BadRequest}, isColonValidateToken, ch, read_limit);
 
                     // Header name
-                    key = buf.items[index..stream.readCount()-1];
+                    key = buf.items[index .. stream.readCount() - 1];
 
                     // Strip whitespace
                     while (stream.readCount() < read_limit) {
@@ -191,11 +191,11 @@ pub const Headers = struct {
             }
 
             // Read value
-            index = stream.readCount()-1;
+            index = stream.readCount() - 1;
             ch = stream.readUntilExpr(isControlOrPrint, ch, read_limit);
 
             // TODO: Strip trailing spaces and tabs?
-            value = buf.items[index..stream.readCount()-1];
+            value = buf.items[index .. stream.readCount() - 1];
 
             // Ignore any remaining non-print characters
             ch = stream.readUntilExpr(isControlOrPrint, ch, read_limit);
@@ -233,9 +233,7 @@ pub const Headers = struct {
         var stream = IOStream.fromBuffer(fba.buffer);
         try self.parse(&buf, &stream, max_size);
     }
-
 };
-
 
 test "headers-get" {
     const allocator = std.testing.allocator;
@@ -245,10 +243,8 @@ test "headers-get" {
     try testing.expectError(error.KeyError, headers.get("Accept-Type"));
     try testing.expectEqualSlices(u8, try headers.get("cookie"), "Nom;nom;nom");
     try testing.expectEqualSlices(u8, try headers.get("cOOKie"), "Nom;nom;nom");
-    try testing.expectEqualSlices(u8,
-        headers.getDefault("User-Agent" , "zig"), "zig");
-    try testing.expectEqualSlices(u8,
-        headers.getDefault("cookie" , "zig"), "Nom;nom;nom");
+    try testing.expectEqualSlices(u8, headers.getDefault("User-Agent", "zig"), "zig");
+    try testing.expectEqualSlices(u8, headers.getDefault("cookie", "zig"), "Nom;nom;nom");
 }
 
 test "headers-put" {
@@ -283,7 +279,6 @@ test "headers-pop" {
     try testing.expect(!headers.contains("Cookie"));
     try testing.expect(mem.eql(u8, headers.popDefault("Cookie", "Hello"), "Hello"));
 }
-
 
 test "headers-parse" {
     const HEADERS =

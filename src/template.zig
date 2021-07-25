@@ -33,11 +33,11 @@ const Section = struct {
                 // TODO: Support arbitrary lookups
                 const v =
                     if (comptime mem.eql(u8, self.content, "self"))
-                        context
-                    else if (comptime mem.indexOf(u8, self.content, ".")) |offset|
-                        @field(@field(context, self.content[0..offset]), self.content[offset+1..])
-                    else
-                        @field(context, self.content);
+                    context
+                else if (comptime mem.indexOf(u8, self.content, ".")) |offset|
+                    @field(@field(context, self.content[0..offset]), self.content[offset + 1 ..])
+                else
+                    @field(context, self.content);
 
                 // TODO: Escape
                 const T = @TypeOf(v);
@@ -48,7 +48,7 @@ const Section = struct {
                     },
                     else => {
                         try stream.print("{s}", .{v});
-                    }
+                    },
                 }
             },
             .Template => {
@@ -61,18 +61,21 @@ const Section = struct {
     }
 };
 
-
-
 pub fn parse(comptime Context: type, comptime template: []const u8) []const Section {
+    _ = Context;
     @setEvalBranchQuota(100000);
 
     // Count number of sections this will probably be off
     comptime var max_sections: usize = 2;
     comptime {
         var vars = simd.split(template, "{{");
-        while (vars.next()) |i| {max_sections += 1;}
+        while (vars.next()) |_| {
+            max_sections += 1;
+        }
         var blocks = simd.split(template, "{%");
-        while (blocks.next()) |i| {max_sections += 1;}
+        while (blocks.next()) |_| {
+            max_sections += 1;
+        }
     }
 
     // Now parse each section
@@ -82,12 +85,7 @@ pub fn parse(comptime Context: type, comptime template: []const u8) []const Sect
     while (simd.indexOfPos(u8, template, pos, "{")) |i| {
         if (i != pos) {
             // Content before
-            sections[index] = Section{
-                .content=template[pos..i],
-                .type=.Content,
-                .start=pos,
-                .end=i
-            };
+            sections[index] = Section{ .content = template[pos..i], .type = .Content, .start = pos, .end = i };
             index += 1;
         }
 
@@ -98,10 +96,10 @@ pub fn parse(comptime Context: type, comptime template: []const u8) []const Sect
                 const format = std.mem.trim(u8, template[start..end], " ");
                 pos = end + 2;
                 sections[index] = Section{
-                    .content=format,
-                    .type=.Variable,
-                    .start=i,
-                    .end=pos,
+                    .content = format,
+                    .type = .Variable,
+                    .start = i,
+                    .end = pos,
                 };
                 index += 1;
                 continue;
@@ -127,10 +125,10 @@ pub fn parse(comptime Context: type, comptime template: []const u8) []const Sect
                 if (simd.indexOfPos(u8, template, start, "%}")) |end| {
                     pos = end + 2;
                     sections[index] = Section{
-                        .content=mem.trim(u8, template[start..end], " "),
-                        .type=.Template,
-                        .start=i,
-                        .end=pos,
+                        .content = mem.trim(u8, template[start..end], " "),
+                        .type = .Template,
+                        .start = i,
+                        .end = pos,
                     };
                     index += 1;
                     continue;
@@ -146,10 +144,10 @@ pub fn parse(comptime Context: type, comptime template: []const u8) []const Sect
     // Final section
     if (pos < template.len) {
         sections[index] = Section{
-            .content=template[pos..],
-            .type=.Content,
-            .start=pos,
-            .end=template.len,
+            .content = template[pos..],
+            .type = .Content,
+            .start = pos,
+            .end = template.len,
         };
         index += 1;
     }
@@ -173,24 +171,22 @@ pub fn Template(comptime Context: type, comptime template: []const u8) type {
         pub fn dump() void {
             std.debug.warn("Template (length = {d})\n", .{template.len});
             inline for (sections) |s| {
-                std.debug.warn("{s} (\"{s}\")\n", .{s, template[s.start..s.end]});
+                std.debug.warn("{s} (\"{s}\")\n", .{ s, template[s.start..s.end] });
             }
         }
 
         // Render the whole template ignoring any yield statements
         pub fn render(context: Context, stream: anytype) @TypeOf(stream).Error!void {
-            inline for (sections) |s, i| {
+            inline for (sections) |s| {
                 try s.render(context, stream);
             }
         }
     };
 }
 
-
 pub fn FileTemplate(comptime Context: type, comptime filename: []const u8) type {
     return Template(Context, @embedFile(filename));
 }
-
 
 fn expectRender(comptime T: type, context: anytype, result: []const u8) !void {
     var buf: [4096]u8 = undefined;
@@ -204,7 +200,7 @@ test "template-variable" {
         name: []const u8,
     };
     const Tmpl = Template(Context, "Hello {{name}}!");
-    try expectRender(Tmpl, .{.name="World"}, "Hello World!");
+    try expectRender(Tmpl, .{ .name = "World" }, "Hello World!");
 }
 //
 // test "template-variable-self" {
@@ -223,7 +219,7 @@ test "template-variable-nested" {
         user: User,
     };
     const Tmpl = Template(Context, "Hello {{user.name}}!");
-    try expectRender(Tmpl, .{.user=User{.name="World"}}, "Hello World!");
+    try expectRender(Tmpl, .{ .user = User{ .name = "World" } }, "Hello World!");
 }
 
 test "template-multiple-variables" {
@@ -232,9 +228,8 @@ test "template-multiple-variables" {
         age: u8,
     };
     const Tmpl = Template(Context, "User {{name}} is {{age}}!");
-    try expectRender(Tmpl, .{.name="Bob", .age=74}, "User Bob is 74!");
+    try expectRender(Tmpl, .{ .name = "Bob", .age = 74 }, "User Bob is 74!");
 }
-
 
 test "template-variables-whitespace-is-ignored" {
     const Context = struct {
@@ -242,9 +237,8 @@ test "template-variables-whitespace-is-ignored" {
         age: u8,
     };
     const Tmpl = Template(Context, "User {{ name }} is {{  age}}!");
-    try expectRender(Tmpl, .{.name="Bob", .age=74}, "User Bob is 74!");
+    try expectRender(Tmpl, .{ .name = "Bob", .age = 74 }, "User Bob is 74!");
 }
-
 
 test "template-yield" {
     var buf: [4096]u8 = undefined;
